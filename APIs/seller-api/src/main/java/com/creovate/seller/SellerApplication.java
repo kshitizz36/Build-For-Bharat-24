@@ -20,6 +20,7 @@ import org.springframework.scheduling.annotation.Async;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestPart;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
@@ -43,6 +44,8 @@ public class SellerApplication {
     private final Configuration hbaseConfig;
     private final Map<String, String> processingStatus = new ConcurrentHashMap<>();
     private final Map<String, List<Map<String, List<String>>>> parsedDataMap = new ConcurrentHashMap<>();
+    int setcnt = 0;
+    int pincodeCount = 0;
 
     public SellerApplication(TaskExecutor taskExecutor) {
         this.taskExecutor = taskExecutor;
@@ -55,12 +58,13 @@ public class SellerApplication {
         SpringApplication.run(SellerApplication.class, args);
     }
 
-    @PostMapping(value = "/upload")
+    @PostMapping(value = "/upload/csv")
     public ResponseEntity<Map<String, Object>> readFile(@RequestPart MultipartFile file) {
         String processingId = UUID.randomUUID().toString();
         processingStatus.put(processingId, "Processing started");
         try {
             CompletableFuture.runAsync(() -> parseAndSendCSV(file, processingId), taskExecutor);
+            loggerx("Parsing has started");
             Map<String, Object> response = new HashMap<>();
             response.put("message", "File processing started with ID: " + processingId);
             response.put("processingId", processingId);
@@ -70,6 +74,17 @@ public class SellerApplication {
             processingStatus.put(processingId, "Error starting file processing: " + e.getMessage());
             return new ResponseEntity<>(HttpStatus.INTERNAL_SERVER_ERROR);
         }
+    }
+
+    @PostMapping("/upload/json")
+    public String receiveData(@RequestBody Map<String, String> data) {
+        String merchantName = data.get("merchant_name");
+        String pincodes = data.get("pincodes");
+        
+        System.out.println("Merchant Name: " + merchantName);
+        System.out.println("Pincodes: " + pincodes);
+        
+        return "Data received successfully!";
     }
 
     @Async
@@ -83,36 +98,41 @@ public class SellerApplication {
                     .build();
             try (CSVParser parser = new CSVParser(reader, csvFormat)) {
                 Map<String, List<String>> pinCodeMerchants = new ConcurrentHashMap<>();
-                int batchSize = 5000; 
+                Set<String> uniqueHeaders = new HashSet<>();
+
+                
 
                 String[] headers = parser.getHeaderMap().keySet().toArray(new String[0]);
                 if (headers.length == 0) {
                     throw new IllegalArgumentException("CSV file must have headers.");
                 }
-
-                int recordCount = 0;
+                
+                loggerx("start of parse");
+                
                 for (CSVRecord record : parser) {
+                    
                     for (int i = 0; i < Math.min(headers.length, record.size()); i++) {
                         String merchantName = record.get(i).trim();
                         if (!merchantName.isEmpty()) {
                             String pinCode = headers[i].trim();
+
                             pinCodeMerchants.computeIfAbsent(pinCode, k -> new ArrayList<>()).add(merchantName);
+                            uniqueHeaders.add(pinCode);
                         }
                     }
 
-                    recordCount++;
-                    if (recordCount >= batchSize) {
-                        parsedData.add(new HashMap<>(pinCodeMerchants));
-                        pinCodeMerchants.clear();
-                        recordCount = 0;
-                    }
+
+                    
                 }
 
                 if (!pinCodeMerchants.isEmpty()) {
                     parsedData.add(pinCodeMerchants);
                 }
 
+
+
                 logger.info("CSV parsed successfully, number of batches: " + parsedData.size());
+                loggerx("End of parse");
                 processingStatus.put(processingId, "CSV parsed successfully, number of batches: " + parsedData.size());
                 parsedDataMap.put(processingId, parsedData);
                 parsedData.forEach(batch -> insertBatchIntoHBase(batch, processingId));
@@ -125,17 +145,22 @@ public class SellerApplication {
 
     @Async
     public void insertBatchIntoHBase(Map<String, List<String>> batch, String processingId) {
+        
         try (Connection connection = ConnectionFactory.createConnection(hbaseConfig);
              Table table = connection.getTable(TableName.valueOf("pincode_serviceability"))) {
-
+            
+            
             for (Map.Entry<String, List<String>> entry : batch.entrySet()) {
                 String pinCode = entry.getKey();
                 String merchants = String.join(",", entry.getValue());
                 Put put = new Put(Bytes.toBytes(pinCode));
                 put.addColumn(Bytes.toBytes("cf"), Bytes.toBytes("merchant_id"), Bytes.toBytes(merchants));
                 table.put(put);
+                setcnt ++;
             }
 
+            loggerx("Entered "+setcnt+" Rows into HBASE");
+            setcnt = 0;
             logger.info("Batch inserted into HBase: " + batch.toString());
             processingStatus.put(processingId, "Batch inserted into HBase successfully.");
         } catch (Exception e) {
@@ -148,7 +173,26 @@ public class SellerApplication {
         }
     }
 
-    @GetMapping(value = "/api/v1/file/status/{processingId}")
+    @Async
+    public void insertJSONIntoHBase(String merchant,String pin) {
+        try (Connection connection = ConnectionFactory.createConnection(hbaseConfig);
+             Table table = connection.getTable(TableName.valueOf("pincode_serviceability"))) {
+
+                Put put = new Put(Bytes.toBytes(pin));
+                put.addColumn(Bytes.toBytes("cf"), Bytes.toBytes("merchant_id"), Bytes.toBytes(merchant));
+                table.put(put);
+
+
+        } catch (Exception e) {
+
+            System.out.println("Error");
+
+        }
+    }
+
+
+
+    @GetMapping(value = "/upload/status/{processingId}")
     public ResponseEntity<Map<String, Object>> getStatus(@PathVariable String processingId) {
         String status = processingStatus.get(processingId);
         if (status != null) {
@@ -159,5 +203,16 @@ public class SellerApplication {
         } else {
             return new ResponseEntity<>(HttpStatus.NOT_FOUND);
         }
+    }
+
+    public static void loggerx(String txt){
+        System.out.println("########################################");
+        System.out.println();
+        System.out.println();
+        System.out.println("            "+txt+"                   ");
+        System.out.println();
+        System.out.println();
+        System.out.println("########################################");
+
     }
 }
