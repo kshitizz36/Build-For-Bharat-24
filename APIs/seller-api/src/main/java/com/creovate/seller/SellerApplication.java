@@ -36,6 +36,8 @@ import java.util.logging.Logger;
 @SpringBootApplication
 public class SellerApplication {
 
+    public final static String hbaseIP = "10.160.0.3";
+
     private static final Logger logger = Logger.getLogger(SellerApplication.class.getName());
     private final TaskExecutor taskExecutor;
     private final Configuration hbaseConfig;
@@ -45,7 +47,7 @@ public class SellerApplication {
     public SellerApplication(TaskExecutor taskExecutor) {
         this.taskExecutor = taskExecutor;
         this.hbaseConfig = HBaseConfiguration.create();
-        this.hbaseConfig.set("hbase.zookeeper.quorum", "10.160.0.3"); // Update with your Zookeeper quorum
+        this.hbaseConfig.set("hbase.zookeeper.quorum", hbaseIP);
         this.hbaseConfig.set("hbase.zookeeper.property.clientPort", "2181");
     }
 
@@ -53,7 +55,7 @@ public class SellerApplication {
         SpringApplication.run(SellerApplication.class, args);
     }
 
-    @PostMapping(value = "/api/v1/file/read")
+    @PostMapping(value = "/upload")
     public ResponseEntity<Map<String, Object>> readFile(@RequestPart MultipartFile file) {
         String processingId = UUID.randomUUID().toString();
         processingStatus.put(processingId, "Processing started");
@@ -81,7 +83,7 @@ public class SellerApplication {
                     .build();
             try (CSVParser parser = new CSVParser(reader, csvFormat)) {
                 Map<String, List<String>> pinCodeMerchants = new ConcurrentHashMap<>();
-                int batchSize = 10000; // Adjust batch size
+                int batchSize = 5000; 
 
                 String[] headers = parser.getHeaderMap().keySet().toArray(new String[0]);
                 if (headers.length == 0) {
@@ -139,7 +141,10 @@ public class SellerApplication {
         } catch (Exception e) {
             logger.severe("Error inserting batch into HBase: " + e.getMessage());
             processingStatus.put(processingId, "Error inserting batch into HBase: " + e.getMessage());
-            // Implement retry logic or fault-tolerant mechanisms if necessary
+            
+
+
+            // add logger info to show that all csv files have been uploaded to HBASE Successfully
         }
     }
 

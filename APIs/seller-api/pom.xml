@@ -10,9 +10,9 @@
 	</parent>
 	<groupId>com.creovate</groupId>
 	<artifactId>seller</artifactId>
-	<version>0.0.1-SNAPSHOT</version>
+	<version>1.0.0</version>
 	<name>seller</name>
-	<description>Demo project for Spring Boot</description>
+	<description>Team creovate</description>
 	<properties>
 		<java.version>17</java.version>
 	</properties>
@@ -47,28 +47,13 @@
     		<version>1.11.0</version>
 		</dependency>
 
-		<dependency>
-			<groupId>org.apache.kafka</groupId>
-			<artifactId>kafka-streams</artifactId>
-		</dependency>
+
 
 		<dependency>
-    		<groupId>org.springframework.kafka</groupId>
-    		<artifactId>spring-kafka</artifactId>
-    		<version>3.1.4</version>
+			<groupId>org.apache.hbase</groupId>
+			<artifactId>hbase-client</artifactId>
+			<version>2.6.0</version>
 		</dependency>
-
-		<dependency>
-    		<groupId>org.apache.kafka</groupId>
-    		<artifactId>kafka-clients</artifactId>
-   	 		<version>3.7.0</version>
-		</dependency>
-
-				<dependency>
-    <groupId>org.apache.hbase</groupId>
-    <artifactId>hbase-client</artifactId>
-    <version>2.6.0</version>
-</dependency>
 
 		<dependency>
     		<groupId>commons-io</groupId>
@@ -76,17 +61,8 @@
     		<version>2.16.1</version>
 		</dependency>
 
-		<dependency>
-    <groupId>com.univocity</groupId>
-    <artifactId>univocity-parsers</artifactId>
-    <version>2.9.1</version>
-</dependency>
 
-		<dependency>
-			<groupId>org.projectlombok</groupId>
-			<artifactId>lombok</artifactId>
-			<optional>true</optional>
-		</dependency>
+
 		<dependency>
 			<groupId>org.springframework.boot</groupId>
 			<artifactId>spring-boot-starter-test</artifactId>
