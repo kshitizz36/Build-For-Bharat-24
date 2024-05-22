@@ -41,17 +41,17 @@ class Ui_MainWindow(object):
 
 
     def setupUi(self, MainWindow):
-        MainWindow.setObjectName("Team Creovate")
+        MainWindow.setObjectName("MainWindow")
         MainWindow.resize(1536, 864)
         MainWindow.setMinimumSize(QtCore.QSize(1536, 864))
         MainWindow.setMaximumSize(QtCore.QSize(1536, 864))
-        MainWindow.setStyleSheet("background-color :#1c1c1c;")
+        MainWindow.setStyleSheet("background-color :#e8e8e8;")
         self.centralwidget = QtWidgets.QWidget(MainWindow)
         self.centralwidget.setObjectName("centralwidget")
         self.label = QtWidgets.QLabel(self.centralwidget)
         self.label.setGeometry(QtCore.QRect(10, 10, 71, 71))
         self.label.setText("")
-        self.label.setPixmap(QtGui.QPixmap("Assets/logo.png"))
+        self.label.setPixmap(QtGui.QPixmap("/Assets/logo2.png"))
         self.label.setObjectName("label")
         self.label_2 = QtWidgets.QLabel(self.centralwidget)
         self.label_2.setGeometry(QtCore.QRect(1340, 800, 61, 41))
@@ -61,7 +61,7 @@ class Ui_MainWindow(object):
         font.setBold(False)
         font.setWeight(50)
         self.label_2.setFont(font)
-        self.label_2.setStyleSheet("color:white;")
+        self.label_2.setStyleSheet("color:#3f3f3f;")
         self.label_2.setObjectName("label_2")
         self.label_3 = QtWidgets.QLabel(self.centralwidget)
         self.label_3.setGeometry(QtCore.QRect(1406, 800, 181, 41))
@@ -71,7 +71,7 @@ class Ui_MainWindow(object):
         font.setBold(True)
         font.setWeight(75)
         self.label_3.setFont(font)
-        self.label_3.setStyleSheet("color:#5bc4ff;")
+        self.label_3.setStyleSheet("color:#4285F4;")
         self.label_3.setObjectName("label_3")
         self.pushButton = QtWidgets.QPushButton(self.centralwidget)
         self.pushButton.setGeometry(QtCore.QRect(360, 400, 281, 111))
@@ -85,22 +85,22 @@ class Ui_MainWindow(object):
         self.pushButton.setStyleSheet("QPushButton#pushButton{\n"
 "border-radius:20;\n"
 "border: 3px solid #0085ff;\n"
-"border-color:#0085ffsu;\n"
+"border-color:#4285F4;\n"
 "background:transparent;\n"
-"color:white;\n"
+"color:#3f3f3f;\n"
 "}\n"
 "\n"
 "QPushButton#pushButton:hover{\n"
 "border-radius:20;\n"
-"border: 3px solid #3a9fd9;\n"
+"border: 3px solid #4285F4;\n"
 "border-color:#0085ffsu;\n"
-"background-color:#3A9FD9\n"
+"background-color:#4285F4\n"
 "}\n"
 "\n"
 "\n"
-"")
+"r")
         icon = QtGui.QIcon()
-        icon.addPixmap(QtGui.QPixmap("Assets/shop.png"), QtGui.QIcon.Normal, QtGui.QIcon.Off)
+        icon.addPixmap(QtGui.QPixmap("Assets/shop2.png"), QtGui.QIcon.Normal, QtGui.QIcon.Off)
         self.pushButton.setIcon(icon)
         self.pushButton.setIconSize(QtCore.QSize(212, 212))
         self.pushButton.setObjectName("pushButton")
@@ -118,22 +118,22 @@ class Ui_MainWindow(object):
 "border: 3px solid #0085ff;\n"
 "border-color:#0085ffsu;\n"
 "background:transparent;\n"
-"color:white;\n"
+"color:#3f3f3f;\n"
 "}\n"
 "\n"
 "QPushButton#pushButton_2:hover{\n"
 "border-radius:20;\n"
-"border: 3px solid #3a9fd9;\n"
+"border: 3px solid #4285F4;\n"
 "border-color:#0085ffsu;\n"
-"background-color:#3A9FD9\n"
+"background-color:#4285F4\n"
 "}\n"
 "\n"
 "\n"
 "")
         icon1 = QtGui.QIcon()
-        icon1.addPixmap(QtGui.QPixmap("Assets/buyer.png"), QtGui.QIcon.Normal, QtGui.QIcon.Off)
+        icon1.addPixmap(QtGui.QPixmap("Assets/b2.png"), QtGui.QIcon.Normal, QtGui.QIcon.Off)
         self.pushButton_2.setIcon(icon1)
-        self.pushButton_2.setIconSize(QtCore.QSize(212, 212))
+        self.pushButton_2.setIconSize(QtCore.QSize(60, 60))
         self.pushButton_2.setObjectName("pushButton_2")
         self.pushButton.raise_()
         self.label.raise_()
