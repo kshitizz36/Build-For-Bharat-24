@@ -6,10 +6,7 @@ import org.apache.commons.csv.CSVRecord;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.hbase.HBaseConfiguration;
 import org.apache.hadoop.hbase.TableName;
-import org.apache.hadoop.hbase.client.Connection;
-import org.apache.hadoop.hbase.client.ConnectionFactory;
-import org.apache.hadoop.hbase.client.Put;
-import org.apache.hadoop.hbase.client.Table;
+import org.apache.hadoop.hbase.client.*;
 import org.apache.hadoop.hbase.util.Bytes;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
@@ -17,12 +14,7 @@ import org.springframework.core.task.TaskExecutor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.scheduling.annotation.Async;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestPart;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.BufferedReader;
@@ -84,6 +76,8 @@ public class SellerApplication {
         System.out.println("Merchant Name: " + merchantName);
         System.out.println("Pincodes: " + pincodes);
         
+        insertJSONIntoHBase(merchantName, pincodes);
+
         return "Data received successfully!";
     }
 
@@ -100,8 +94,6 @@ public class SellerApplication {
                 Map<String, List<String>> pinCodeMerchants = new ConcurrentHashMap<>();
                 Set<String> uniqueHeaders = new HashSet<>();
 
-                
-
                 String[] headers = parser.getHeaderMap().keySet().toArray(new String[0]);
                 if (headers.length == 0) {
                     throw new IllegalArgumentException("CSV file must have headers.");
@@ -110,26 +102,19 @@ public class SellerApplication {
                 loggerx("start of parse");
                 
                 for (CSVRecord record : parser) {
-                    
                     for (int i = 0; i < Math.min(headers.length, record.size()); i++) {
                         String merchantName = record.get(i).trim();
                         if (!merchantName.isEmpty()) {
                             String pinCode = headers[i].trim();
-
                             pinCodeMerchants.computeIfAbsent(pinCode, k -> new ArrayList<>()).add(merchantName);
                             uniqueHeaders.add(pinCode);
                         }
                     }
-
-
-                    
                 }
 
                 if (!pinCodeMerchants.isEmpty()) {
                     parsedData.add(pinCodeMerchants);
                 }
-
-
 
                 logger.info("CSV parsed successfully, number of batches: " + parsedData.size());
                 loggerx("End of parse");
@@ -143,54 +128,82 @@ public class SellerApplication {
         }
     }
 
-    @Async
-    public void insertBatchIntoHBase(Map<String, List<String>> batch, String processingId) {
-        
+    private String fetchExistingDataFromHBase(String pinCode) throws Exception {
         try (Connection connection = ConnectionFactory.createConnection(hbaseConfig);
              Table table = connection.getTable(TableName.valueOf("pincode_serviceability"))) {
             
+            Get get = new Get(Bytes.toBytes(pinCode));
+            Result result = table.get(get);
+            byte[] value = result.getValue(Bytes.toBytes("cf"), Bytes.toBytes("merchant_id"));
+            
+            return value != null ? Bytes.toString(value) : null;
+        }
+    }
+
+    private boolean merchantExists(String existingData, String merchant) {
+        if (existingData == null || existingData.isEmpty()) {
+            return false;
+        }
+        String[] merchants = existingData.split(",");
+        return Arrays.asList(merchants).contains(merchant);
+    }
+
+    @Async
+    public void insertBatchIntoHBase(Map<String, List<String>> batch, String processingId) {
+        try (Connection connection = ConnectionFactory.createConnection(hbaseConfig);
+             Table table = connection.getTable(TableName.valueOf("pincode_serviceability"))) {
             
             for (Map.Entry<String, List<String>> entry : batch.entrySet()) {
                 String pinCode = entry.getKey();
-                String merchants = String.join(",", entry.getValue());
+                List<String> newMerchants = entry.getValue();
+
+                // Fetch existing data
+                String existingData = fetchExistingDataFromHBase(pinCode);
+                Set<String> updatedMerchantsSet = new HashSet<>(newMerchants);
+
+                if (existingData != null) {
+                    String[] existingMerchants = existingData.split(",");
+                    updatedMerchantsSet.addAll(Arrays.asList(existingMerchants));
+                }
+
+                String updatedData = String.join(",", updatedMerchantsSet);
+
                 Put put = new Put(Bytes.toBytes(pinCode));
-                put.addColumn(Bytes.toBytes("cf"), Bytes.toBytes("merchant_id"), Bytes.toBytes(merchants));
+                put.addColumn(Bytes.toBytes("cf"), Bytes.toBytes("merchant_id"), Bytes.toBytes(updatedData));
                 table.put(put);
-                setcnt ++;
+                setcnt++;
             }
 
-            loggerx("Entered "+setcnt+" Rows into HBASE");
+            loggerx("Entered " + setcnt + " Rows into HBASE");
             setcnt = 0;
             logger.info("Batch inserted into HBase: " + batch.toString());
             processingStatus.put(processingId, "Batch inserted into HBase successfully.");
         } catch (Exception e) {
             logger.severe("Error inserting batch into HBase: " + e.getMessage());
             processingStatus.put(processingId, "Error inserting batch into HBase: " + e.getMessage());
-            
-
-
-            // add logger info to show that all csv files have been uploaded to HBASE Successfully
         }
     }
 
     @Async
-    public void insertJSONIntoHBase(String merchant,String pin) {
+    public void insertJSONIntoHBase(String merchant, String pin) {
         try (Connection connection = ConnectionFactory.createConnection(hbaseConfig);
              Table table = connection.getTable(TableName.valueOf("pincode_serviceability"))) {
 
-                Put put = new Put(Bytes.toBytes(pin));
-                put.addColumn(Bytes.toBytes("cf"), Bytes.toBytes("merchant_id"), Bytes.toBytes(merchant));
-                table.put(put);
+            // Fetch existing data
+            String existingData = fetchExistingDataFromHBase(pin);
 
+            // Check if the merchant already exists
+            if (!merchantExists(existingData, merchant)) {
+                String updatedData = existingData == null ? merchant : existingData + "," + merchant;
+                Put put = new Put(Bytes.toBytes(pin));
+                put.addColumn(Bytes.toBytes("cf"), Bytes.toBytes("merchant_id"), Bytes.toBytes(updatedData));
+                table.put(put);
+            }
 
         } catch (Exception e) {
-
-            System.out.println("Error");
-
+            System.out.println("Error: " + e.getMessage());
         }
     }
-
-
 
     @GetMapping(value = "/upload/status/{processingId}")
     public ResponseEntity<Map<String, Object>> getStatus(@PathVariable String processingId) {
@@ -213,6 +226,5 @@ public class SellerApplication {
         System.out.println();
         System.out.println();
         System.out.println("########################################");
-
     }
 }
