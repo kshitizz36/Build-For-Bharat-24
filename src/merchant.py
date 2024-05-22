@@ -1,9 +1,9 @@
 from PyQt5 import QtCore, QtGui, QtWidgets
 from PyQt5.QtWidgets import QFileDialog
-from PyQt5.QtCore import QRunnable,QThreadPool,QProcess,QObject,pyqtSlot, pyqtSignal
+from PyQt5.QtCore import QRunnable,QThreadPool,QProcess,QObject, pyqtSignal
 import requests
-import subprocess
-from map import MapWindow
+import json
+from src.map import MapWindow
 
 class Worker(QRunnable):
     def __init__(self, file):
@@ -11,10 +11,11 @@ class Worker(QRunnable):
         self.filename = file
 
     def run(self):
+        config = json.load(open("src/config.json",'r'))
         print(self.filename)
         files = {'file': open(self.filename[0], 'rb')}
         print('starting upload')
-        response = requests.post('http://34.0.7.203:5000/upload', files=files)
+        response = requests.post(config['SellerCSV'], files=files)
         print('upload finished')
         print(response)
 
@@ -24,6 +25,9 @@ class Communicator(QObject):
     coordinates_signal = pyqtSignal(int) 
 
 class Ui_MerchantWindow(object):
+    
+    
+
     def setupUi(self, MainWindow):
         MainWindow.setObjectName("MainWindow")
         MainWindow.resize(1536, 864)
@@ -145,9 +149,10 @@ class Ui_MerchantWindow(object):
         self.frame_2.setFrameShadow(QtWidgets.QFrame.Raised)
         self.frame_2.setObjectName("frame_2")
         self.label_7 = QtWidgets.QLabel(self.frame_2)
-        self.label_7.setGeometry(QtCore.QRect(40, 10, 61, 71))
+        self.label_7.setGeometry(QtCore.QRect(60, 15, 61, 61))
         self.label_7.setText("")
-        self.label_7.setPixmap(QtGui.QPixmap("../../../Downloads/csv (2).png"))
+        self.label_7.setScaledContents(True)
+        self.label_7.setPixmap(QtGui.QPixmap("Assets/csv-256.png"))
         self.label_7.setObjectName("label_7")
         self.label_8 = QtWidgets.QLabel(self.frame_2)
         self.label_8.setGeometry(QtCore.QRect(150, 26, 331, 41))
@@ -160,7 +165,7 @@ class Ui_MerchantWindow(object):
         self.label_8.setStyleSheet("color:#3f3f3f;")
         self.label_8.setObjectName("label_8")
         self.pushButton_3 = QtWidgets.QPushButton(self.centralwidget)
-        self.pushButton_3.setGeometry(QtCore.QRect(517, 280, 491, 51))
+        self.pushButton_3.setGeometry(QtCore.QRect(510, 260, 501, 51))
         font = QtGui.QFont()
         font.setFamily("Google Sans")
         font.setPointSize(15)
@@ -339,10 +344,6 @@ class Ui_MerchantWindow(object):
         self.label_15.raise_()
         self.pushButton_9.raise_()
         self.pushButton_5.raise_()
-        self.radioButton = QtWidgets.QRadioButton(self.centralwidget)
-        self.radioButton.setGeometry(QtCore.QRect(920, 250, 111, 23))
-        self.radioButton.setObjectName("radioButton")
-        self.radioButton.raise_()
         self.label.raise_()
         self.label_2.raise_()
         self.label_3.raise_()
@@ -381,7 +382,7 @@ class Ui_MerchantWindow(object):
          self.label_14.setText(_translate("MainWindow", "")) #invalid
          self.label_15.setText(_translate("MainWindow", "Enter multiple pincodes separated by commas e.g., 110001,500001,201301"))
          self.pushButton_9.setText(_translate("MainWindow", "SUBMIT"))
-         self.radioButton.setText(_translate("MainWindow", "Append"))
+         self.pushButton_9.clicked.connect(lambda: self.sendJSON(self.lineEdit.text(),self.lineEdit_3.text()))
          self.pushButton_2.clicked.connect(lambda: self.openFile())
          self.pushButton_5.clicked.connect(lambda: self.open_map_view())
 
@@ -404,6 +405,29 @@ class Ui_MerchantWindow(object):
         worker = Worker(self.filename)
         self.threadpool.start(worker)
 
+    def sendJSON(self,merch,pinc):
+        config = json.load(open("src/config.json",'r'))
+        url = config['SellerJSON']
+        payload = {
+        "merchant_name": merch,
+        "pincodes": pinc
+        }
+
+        headers = {
+        'Content-Type': 'application/json'
+        }
+
+        try:
+                response = requests.post(url, json=payload, headers=headers)
+                if response.status_code == 200:
+                        print("Request was successful.")
+                        print("Response:", response.json())
+                else:
+                        print(f"Failed to send request. Status code: {response.status_code}")
+                        print("Response:", response.text)
+        except Exception as e:
+                print(f"An error occurred: {e}")
+
 
     def update_coordinates(self,x):
        print('started',x)
@@ -422,6 +446,8 @@ class Ui_MerchantWindow(object):
         self.map_window = MapWindow()
         self.map_window.bridge.coordinates_received.connect(self.communicator.coordinates_signal.emit)
         self.map_window.show()
+
+
 
 
 

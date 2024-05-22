@@ -10,8 +10,8 @@
 
 from PyQt5 import QtCore, QtGui, QtWidgets
 
-from buyer import Ui_BuyerWindow
-from merchant import Ui_MerchantWindow
+from src.buyer import Ui_BuyerWindow
+from src.merchant import Ui_MerchantWindow
 
 
 class Ui_MainWindow(object):
@@ -51,7 +51,7 @@ class Ui_MainWindow(object):
         self.label = QtWidgets.QLabel(self.centralwidget)
         self.label.setGeometry(QtCore.QRect(10, 10, 71, 71))
         self.label.setText("")
-        self.label.setPixmap(QtGui.QPixmap("/Assets/logo2.png"))
+        self.label.setPixmap(QtGui.QPixmap("Assets/logo2.png"))
         self.label.setObjectName("label")
         self.label_2 = QtWidgets.QLabel(self.centralwidget)
         self.label_2.setGeometry(QtCore.QRect(1340, 800, 61, 41))

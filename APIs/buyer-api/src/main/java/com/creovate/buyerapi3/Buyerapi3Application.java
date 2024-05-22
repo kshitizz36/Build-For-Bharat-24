@@ -62,7 +62,7 @@ public class Buyerapi3Application {
 
             Get get = new Get(Bytes.toBytes(pin));
             Result result = table.get(get);
-            byte[] value = result.getValue(Bytes.toBytes("cf"), Bytes.toBytes("merchants"));
+            byte[] value = result.getValue(Bytes.toBytes("cf"), Bytes.toBytes("merchant_id"));
 
             if (value != null) {
                 String merchants = Bytes.toString(value);
@@ -70,7 +70,7 @@ public class Buyerapi3Application {
                 return CompletableFuture.completedFuture(merchants);
             } else {
                 logger("NO MERCHANTS FOUND FOR " + pin);
-                return CompletableFuture.completedFuture("No Merchants Found");
+                return CompletableFuture.completedFuture("Null");
             }
 
         } catch (Exception e) {

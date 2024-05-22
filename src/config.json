@@ -2,5 +2,5 @@
     "SellerCSV":"12.12.1.2:3434/acdwacda",
     "SellerJSON":"12.12.1.2:3434/acdwacda",
     "SellerStatus":"12.12.1.2:3434/acdwacda",
-    "BuyerAPI":"12.12.1.2:3434/acdwacda"
+    "BuyerAPI":"http://34.0.7.14:4040/download"
 }

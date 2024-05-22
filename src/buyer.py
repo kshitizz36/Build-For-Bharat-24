@@ -1,24 +1,17 @@
 from PyQt5 import QtCore, QtGui, QtWidgets
-from PyQt5.QtCore import QRunnable,QThreadPool,QProcess,QObject,pyqtSlot, pyqtSignal
+from PyQt5.QtCore import QObject, pyqtSignal
 import requests
-from flask import Flask, jsonify, request
 import json
-import threading
 import geocoder
-from map import MapWindow
+from src.map import MapWindow
 
 class Communicator(QObject):
     coordinates_signal = pyqtSignal(int) 
 
 class Ui_BuyerWindow(object):
 
-
-    config = json.load(open("config.json",'r'))
-    print(config)
-    
-
     def setupUi(self, MainWindow):
-        self.activated = 'pincode'
+        self.activated = 'pincodes'
         MainWindow.setObjectName("MainWindow")
         MainWindow.resize(1536, 864)
         MainWindow.setMinimumSize(QtCore.QSize(1536, 864))
@@ -437,7 +430,7 @@ class Ui_BuyerWindow(object):
 
 
         
-        self.pushButton_2.clicked.connect(lambda :self.changeMode(self.pincodes,self.gps,self.location,'pincode'))
+        self.pushButton_2.clicked.connect(lambda :self.changeMode(self.pincodes,self.gps,self.location,'pincodes'))
 
         self.pushButton_3.clicked.connect(lambda :self.changeMode(self.gps,self.pincodes,self.location,'gps'))
 
@@ -452,12 +445,14 @@ class Ui_BuyerWindow(object):
     def addUi(self,x):
         for i in reversed(range(self.verticalLayout_2.count())):
             self.verticalLayout_2.itemAt(i).widget().setParent(None)
-                
+
+        if len(x) == 1 and x[0] == "Null":
+            x[0] = "No Merchants found"                
         for i in range(len(x)):
                 self.frame = QtWidgets.QFrame(self.scrollAreaWidgetContents)
                 self.frame.setMinimumSize(QtCore.QSize(360, 55))
                 self.frame.setMaximumSize(QtCore.QSize(360, 55))
-                self.frame.setStyleSheet("background-color:#262626")
+                self.frame.setStyleSheet("background-color:#a6a6a6;color:black;")
                 self.frame.setFrameShape(QtWidgets.QFrame.StyledPanel)
                 self.frame.setFrameShadow(QtWidgets.QFrame.Raised)
                 self.frame.setObjectName("frame_"+str(i))
@@ -468,7 +463,7 @@ class Ui_BuyerWindow(object):
                 font.setBold(True)
                 font.setWeight(75)
                 self.label_4.setFont(font)
-                self.label_4.setStyleSheet("color:white")
+                self.label_4.setStyleSheet("color:black")
                 self.label_4.setObjectName("label_4_"+str(i)) 
                 self.label_4.setText(x[i])
                 self.verticalLayout_2.addWidget(self.frame)
@@ -487,24 +482,31 @@ class Ui_BuyerWindow(object):
         nactive2.hide()
 
     def SendReq(self,mode):
+        config = json.load(open("src/config.json",'r'))
         print(mode)
-        if mode=='pincode':
+        if mode=='pincodes':
             rawTxt = self.textEdit.toPlainText()
-            if ',' in rawTxt:
-                pinList = [int(i) for i in rawTxt.split(",")] 
-            else:
-                pinList = [int(rawTxt)]
+            data = rawTxt
         elif mode=='gps':
-            pinList = [float(self.textEdit_2.toPlainText()),float(self.textEdit_3.toPlainText())]
+            data=self.textEdit_2.toPlainText()+','+self.textEdit_3.toPlainText()
+
         elif mode=='location':
-            self.loc_to_pin()
-        # q = requests.post('http://34.0.5.92:4444/pincode',json={mode:pinList})
-        # doc = q.json()['Merchants']
-        # print(doc)
-        # if len(doc) == 0:
-        #     self.addUi(['No Data Found'])
-        # else:
-        #     self.addUi(doc)
+            data = self.textEdit_4.toPlainText()
+
+        params = {
+            'data': data,
+            'mode': mode
+        }
+
+        
+
+        response = requests.get(config['BuyerAPI'], params=params)
+        master_data = response.text.split(",")
+        print(master_data)
+        
+        new_master_data = [i.strip() for i in master_data if i.strip() != "No Merchants Found"]
+        print(new_master_data)
+        self.addUi(new_master_data)
 
     def update_coordinates(self,x):
        print('started',x)
@@ -524,20 +526,7 @@ class Ui_BuyerWindow(object):
         self.map_window.bridge.coordinates_received.connect(self.communicator.coordinates_signal.emit)
         self.map_window.show()
 
-    def loc_to_pin(self):
-        locs = self.textEdit_4.toPlainText()
-        pinList = []
-        locs = locs.split(",")
 
-        for i in locs:
-            if i != "":
-                url = 'https://api.postalpincode.in/postoffice/'+i
-                response = requests.get(url)
-                data = response.json()[0]
-                for i in data['PostOffice']:
-                    pinList.append(i['Pincode'])
-        print(pinList)
-        return pinList
 
     def get_current_location(self):
         g = geocoder.ip('me')
