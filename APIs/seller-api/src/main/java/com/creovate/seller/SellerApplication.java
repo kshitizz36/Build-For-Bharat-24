@@ -37,7 +37,6 @@ public class SellerApplication {
     private final Map<String, String> processingStatus = new ConcurrentHashMap<>();
     private final Map<String, List<Map<String, List<String>>>> parsedDataMap = new ConcurrentHashMap<>();
     int setcnt = 0;
-    int pincodeCount = 0;
 
     public SellerApplication(TaskExecutor taskExecutor) {
         this.taskExecutor = taskExecutor;
@@ -72,11 +71,16 @@ public class SellerApplication {
     public String receiveData(@RequestBody Map<String, String> data) {
         String merchantName = data.get("merchant_name");
         String pincodes = data.get("pincodes");
-        
+
         System.out.println("Merchant Name: " + merchantName);
         System.out.println("Pincodes: " + pincodes);
-        
-        insertJSONIntoHBase(merchantName, pincodes);
+
+        if (merchantName != null && pincodes != null) {
+            String[] pincodeArray = pincodes.split(",");
+            for (String pincode : pincodeArray) {
+                insertJSONIntoHBase(merchantName, pincode.trim());
+            }
+        }
 
         return "Data received successfully!";
     }
