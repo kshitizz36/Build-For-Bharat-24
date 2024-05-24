@@ -34,7 +34,7 @@ import java.util.stream.Collectors;
 @EnableAsync
 public class Buyerapi3Application {
 
-    static final String hbaseIP = "34.93.220.20";
+    static final String hbaseIP = "10.190.0.4";
 
     public static void main(String[] args) {
         SpringApplication.run(Buyerapi3Application.class, args);

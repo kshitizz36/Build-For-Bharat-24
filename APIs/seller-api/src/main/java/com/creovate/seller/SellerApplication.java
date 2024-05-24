@@ -29,7 +29,7 @@ import java.util.logging.Logger;
 @SpringBootApplication
 public class SellerApplication {
 
-    public final static String hbaseIP = "10.160.0.3";
+    public final static String hbaseIP = "10.190.0.4";
 
     private static final Logger logger = Logger.getLogger(SellerApplication.class.getName());
     private final TaskExecutor taskExecutor;
