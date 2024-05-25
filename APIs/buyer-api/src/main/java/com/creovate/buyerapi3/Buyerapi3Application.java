@@ -3,16 +3,15 @@ package com.creovate.buyerapi3;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.hbase.HBaseConfiguration;
 import org.apache.hadoop.hbase.TableName;
-import org.apache.hadoop.hbase.client.Connection;
-import org.apache.hadoop.hbase.client.ConnectionFactory;
-import org.apache.hadoop.hbase.client.Get;
-import org.apache.hadoop.hbase.client.Result;
-import org.apache.hadoop.hbase.client.Table;
+import org.apache.hadoop.hbase.client.*;
 import org.apache.hadoop.hbase.util.Bytes;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.context.annotation.Bean;
+import org.springframework.core.ParameterizedTypeReference;
+import org.springframework.http.HttpMethod;
+import org.springframework.http.ResponseEntity;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.scheduling.annotation.EnableAsync;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
@@ -23,9 +22,7 @@ import org.springframework.web.client.RestTemplate;
 import org.springframework.web.util.UriComponentsBuilder;
 
 import java.net.URI;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import java.util.stream.Collectors;
@@ -35,17 +32,27 @@ import java.util.stream.Collectors;
 public class Buyerapi3Application {
 
     static final String hbaseIP = "10.190.0.4";
+    private static Connection hbaseConnection;
 
     public static void main(String[] args) {
         SpringApplication.run(Buyerapi3Application.class, args);
+        // Initialize HBase connection pool
+        Configuration config = HBaseConfiguration.create();
+        config.set("hbase.zookeeper.quorum", hbaseIP);
+        config.set("hbase.zookeeper.property.clientPort", "2181");
+        try {
+            hbaseConnection = ConnectionFactory.createConnection(config);
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
     }
 
     @Bean(name = "taskExecutor")
     public Executor taskExecutor() {
         ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
-        executor.setCorePoolSize(10);
-        executor.setMaxPoolSize(50);
-        executor.setQueueCapacity(100);
+        executor.setCorePoolSize(20);
+        executor.setMaxPoolSize(100);
+        executor.setQueueCapacity(200);
         executor.setThreadNamePrefix("HBaseLookup-");
         executor.initialize();
         return executor;
@@ -53,13 +60,7 @@ public class Buyerapi3Application {
 
     @Async("taskExecutor")
     public CompletableFuture<String> hbaseConn(String pin) {
-        Configuration config = HBaseConfiguration.create();
-        config.set("hbase.zookeeper.quorum", hbaseIP);
-        config.set("hbase.zookeeper.property.clientPort", "2181");
-
-        try (Connection connection = ConnectionFactory.createConnection(config);
-             Table table = connection.getTable(TableName.valueOf("pincode_serviceability"))) {
-
+        try (Table table = hbaseConnection.getTable(TableName.valueOf("pincode_serviceability"))) {
             Get get = new Get(Bytes.toBytes(pin));
             Result result = table.get(get);
             byte[] value = result.getValue(Bytes.toBytes("cf"), Bytes.toBytes("merchant_id"));
@@ -93,6 +94,8 @@ public class Buyerapi3Application {
     public class HBaseController {
 
         private final Buyerapi3Application application;
+        private final Map<String, String> localCache = new HashMap<>();
+        private final RestTemplate restTemplate = new RestTemplate();
 
         public HBaseController(Buyerapi3Application application) {
             this.application = application;
@@ -102,54 +105,58 @@ public class Buyerapi3Application {
         public CompletableFuture<String> getMerchants(@RequestParam String data, @RequestParam String mode) {
             logger("GET REQUEST FOR " + data + " with mode " + mode);
 
-            // Split the input data by comma and process based on mode
+            List<String> processedPincodes = processInputData(data, mode);
+            if (processedPincodes == null) {
+                return CompletableFuture.completedFuture("Invalid mode specified");
+            }
+
+            List<CompletableFuture<String>> futures = processedPincodes.parallelStream()
+                .map(pin -> localCache.containsKey(pin) ? CompletableFuture.completedFuture(localCache.get(pin)) : application.hbaseConn(pin))
+                .collect(Collectors.toList());
+
+            CompletableFuture<Void> allOf = CompletableFuture.allOf(futures.toArray(new CompletableFuture[0]));
+            return allOf.thenApply(v -> {
+                List<String> results = futures.stream()
+                    .map(CompletableFuture::join)
+                    .collect(Collectors.toList());
+                cacheResults(processedPincodes, results);
+                return String.join(", ", results);
+            });
+        }
+
+        private List<String> processInputData(String data, String mode) {
             List<String> processedPincodes = new ArrayList<>();
             String[] inputs = data.split(",");
 
             switch (mode) {
                 case "pincodes":
-                    // Assume data is a list of pincodes
-                    for (String pincode : inputs) {
-                        processedPincodes.add(pincode.trim());
-                    }
+                    processedPincodes = Arrays.stream(inputs)
+                                               .parallel()
+                                               .map(String::trim)
+                                               .collect(Collectors.toList());
                     break;
-
                 case "gps":
-                    // Assume data is a list of latitude and longitude pairs
-                    for (int i = 0; i < inputs.length; i += 2) {
-                        String latitude = inputs[i].trim();
-                        String longitude = inputs[i + 1].trim();
-                        // Convert GPS coordinates to pincode
-                        List<String> pincodes = getPincodeFromCoordinates(latitude, longitude);
-                        if (pincodes != null) {
-                            processedPincodes.addAll(pincodes);
-                        }
-                    }
+                    processedPincodes = Arrays.stream(inputs)
+                                               .parallel()
+                                               .collect(ArrayList::new, (list, element) -> {
+                                                   String[] coords = element.trim().split(" ");
+                                                   if (coords.length == 2) {
+                                                       list.addAll(getPincodeFromCoordinates(coords[0], coords[1]));
+                                                   }
+                                               }, ArrayList::addAll);
                     break;
-
                 case "location":
-                    // Assume data is a list of location names
-                    for (String location : inputs) {
-                        // Convert location name to pincodes
-                        List<String> pincodes = getPincodesFromLocation(location.trim());
-                        processedPincodes.addAll(pincodes);
-                    }
+                    processedPincodes = Arrays.stream(inputs)
+                                               .parallel()
+                                               .map(String::trim)
+                                               .flatMap(location -> getPincodesFromLocation(location).stream())
+                                               .collect(Collectors.toList());
                     break;
-
                 default:
-                    return CompletableFuture.completedFuture("Invalid mode specified");
+                    return null;
             }
 
-
-            List<CompletableFuture<String>> futures = processedPincodes.stream()
-                .map(application::hbaseConn)
-                .collect(Collectors.toList());
-
-            // Combine results of all futures
-            CompletableFuture<Void> allOf = CompletableFuture.allOf(futures.toArray(new CompletableFuture[0]));
-            return allOf.thenApply(v -> futures.stream()
-                .map(CompletableFuture::join)
-                .collect(Collectors.joining(", ")));
+            return processedPincodes;
         }
 
         private List<String> getPincodeFromCoordinates(String latitude, String longitude) {
@@ -162,10 +169,11 @@ public class Buyerapi3Application {
                     .build()
                     .toUri();
 
-            RestTemplate restTemplate = new RestTemplate();
             try {
-                Map<String, Object> response = restTemplate.getForObject(uri, Map.class);
-                if (response != null && response.get("address") != null) {
+                ResponseEntity<Map<String, Object>> responseEntity = restTemplate.exchange(uri, HttpMethod.GET, null, new ParameterizedTypeReference<Map<String, Object>>() {});
+                Map<String, Object> response = responseEntity.getBody();
+                if (response != null && response.get("address") instanceof Map) {
+                    @SuppressWarnings("unchecked")
                     Map<String, Object> address = (Map<String, Object>) response.get("address");
                     if (address.get("postcode") != null) {
                         pinList.add(address.get("postcode").toString());
@@ -182,20 +190,29 @@ public class Buyerapi3Application {
             String baseUrl = "https://api.postalpincode.in/postoffice/" + locationName;
             URI uri = UriComponentsBuilder.fromHttpUrl(baseUrl).build().toUri();
 
-            RestTemplate restTemplate = new RestTemplate();
             try {
-                List<Map<String, Object>> response = restTemplate.getForObject(uri, List.class);
+                ResponseEntity<List<Map<String, Object>>> responseEntity = restTemplate.exchange(uri, HttpMethod.GET, null, new ParameterizedTypeReference<List<Map<String, Object>>>() {});
+                List<Map<String, Object>> response = responseEntity.getBody();
                 if (response != null && !response.isEmpty()) {
                     Map<String, Object> data = response.get(0);
-                    List<Map<String, Object>> postOffices = (List<Map<String, Object>>) data.get("PostOffice");
-                    for (Map<String, Object> postOffice : postOffices) {
-                        pinList.add((String) postOffice.get("Pincode"));
+                    if (data.get("PostOffice") instanceof List) {
+                        @SuppressWarnings("unchecked")
+                        List<Map<String, Object>> postOffices = (List<Map<String, Object>>) data.get("PostOffice");
+                        for (Map<String, Object> postOffice : postOffices) {
+                            pinList.add((String) postOffice.get("Pincode"));
+                        }
                     }
                 }
             } catch (Exception e) {
                 e.printStackTrace();
             }
             return pinList;
+        }
+
+        private void cacheResults(List<String> pincodes, List<String> results) {
+            for (int i = 0; i < pincodes.size(); i++) {
+                localCache.put(pincodes.get(i), results.get(i));
+            }
         }
     }
 }
