@@ -5,7 +5,6 @@ import org.apache.hadoop.hbase.HBaseConfiguration;
 import org.apache.hadoop.hbase.TableName;
 import org.apache.hadoop.hbase.client.*;
 import org.apache.hadoop.hbase.util.Bytes;
-
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.context.annotation.Bean;
@@ -111,14 +110,14 @@ public class Buyerapi3Application {
             }
 
             List<CompletableFuture<String>> futures = processedPincodes.parallelStream()
-                .map(pin -> localCache.containsKey(pin) ? CompletableFuture.completedFuture(localCache.get(pin)) : application.hbaseConn(pin))
-                .collect(Collectors.toList());
+                    .map(pin -> localCache.containsKey(pin) ? CompletableFuture.completedFuture(localCache.get(pin)) : application.hbaseConn(pin))
+                    .collect(Collectors.toList());
 
             CompletableFuture<Void> allOf = CompletableFuture.allOf(futures.toArray(new CompletableFuture[0]));
             return allOf.thenApply(v -> {
                 List<String> results = futures.stream()
-                    .map(CompletableFuture::join)
-                    .collect(Collectors.toList());
+                        .map(CompletableFuture::join)
+                        .collect(Collectors.toList());
                 cacheResults(processedPincodes, results);
                 return String.join(", ", results);
             });
@@ -131,26 +130,42 @@ public class Buyerapi3Application {
             switch (mode) {
                 case "pincodes":
                     processedPincodes = Arrays.stream(inputs)
-                                               .parallel()
-                                               .map(String::trim)
-                                               .collect(Collectors.toList());
+                            .parallel()
+                            .map(String::trim)
+                            .collect(Collectors.toList());
                     break;
                 case "gps":
-                    processedPincodes = Arrays.stream(inputs)
-                                               .parallel()
-                                               .collect(ArrayList::new, (list, element) -> {
-                                                   String[] coords = element.trim().split(" ");
-                                                   if (coords.length == 2) {
-                                                       list.addAll(getPincodeFromCoordinates(coords[0], coords[1]));
-                                                   }
-                                               }, ArrayList::addAll);
+                    List<CompletableFuture<List<String>>> futures = Arrays.stream(inputs)
+                            .parallel()
+                            .map(coords -> {
+                                String[] coordParts = coords.trim().split(" ");
+                                if (coordParts.length == 2) {
+                                    return getPincodeFromCoordinates(coordParts[0], coordParts[1]);
+                                } else {
+                                    return CompletableFuture.completedFuture(Collections.<String>emptyList());
+                                }
+                            })
+                            .collect(Collectors.toList());
+
+                    CompletableFuture<Void> allOf = CompletableFuture.allOf(futures.toArray(new CompletableFuture[0]));
+                    allOf.join();
+
+                    processedPincodes = futures.stream()
+                            .flatMap(future -> future.join().stream())
+                            .collect(Collectors.toList());
                     break;
                 case "location":
-                    processedPincodes = Arrays.stream(inputs)
-                                               .parallel()
-                                               .map(String::trim)
-                                               .flatMap(location -> getPincodesFromLocation(location).stream())
-                                               .collect(Collectors.toList());
+                    List<CompletableFuture<List<String>>> locationFutures = Arrays.stream(inputs)
+                            .parallel()
+                            .map(location -> getPincodesFromLocation(location.trim()))
+                            .collect(Collectors.toList());
+
+                    CompletableFuture<Void> allLocationFutures = CompletableFuture.allOf(locationFutures.toArray(new CompletableFuture[0]));
+                    allLocationFutures.join();
+
+                    processedPincodes = locationFutures.stream()
+                            .flatMap(future -> future.join().stream())
+                            .collect(Collectors.toList());
                     break;
                 default:
                     return null;
@@ -159,7 +174,8 @@ public class Buyerapi3Application {
             return processedPincodes;
         }
 
-        private List<String> getPincodeFromCoordinates(String latitude, String longitude) {
+        @Async("taskExecutor")
+        public CompletableFuture<List<String>> getPincodeFromCoordinates(String latitude, String longitude) {
             List<String> pinList = new ArrayList<>();
             String baseUrl = "https://nominatim.openstreetmap.org/reverse";
             URI uri = UriComponentsBuilder.fromHttpUrl(baseUrl)
@@ -182,10 +198,11 @@ public class Buyerapi3Application {
             } catch (Exception e) {
                 e.printStackTrace();
             }
-            return pinList;
+            return CompletableFuture.completedFuture(pinList);
         }
 
-        private List<String> getPincodesFromLocation(String locationName) {
+        @Async("taskExecutor")
+        public CompletableFuture<List<String>> getPincodesFromLocation(String locationName) {
             List<String> pinList = new ArrayList<>();
             String baseUrl = "https://api.postalpincode.in/postoffice/" + locationName;
             URI uri = UriComponentsBuilder.fromHttpUrl(baseUrl).build().toUri();
@@ -206,7 +223,7 @@ public class Buyerapi3Application {
             } catch (Exception e) {
                 e.printStackTrace();
             }
-            return pinList;
+            return CompletableFuture.completedFuture(pinList);
         }
 
         private void cacheResults(List<String> pincodes, List<String> results) {
