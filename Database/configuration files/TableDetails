@@ -1,0 +1,20 @@
+pincode_serviceability
+
+ {TABLE_ATTRIBUTES => {METADATA => {'hbase.store.file-tracker.impl' => 'DEFAULT'}}}     
+
+COLUMN FAMILIES DESCRIPTION                                                                                    
+
+
+{NAME => 'cf',
+INDEX_BLOCK_ENCODING => 'NONE',
+VERSIONS => '1',
+KEEP_DELETED_CELLS => 'FALSE',
+DATA_BLOCK_ENCODING => 'PREFIX',
+TTL => 'FOREVER',
+MIN_VERSIONS => '0',
+REPLICATION_SCOPE => '0',
+BLOOMFILTER => 'ROWCOL',
+IN_MEMORY => 'false',
+COMPRESSION => 'SNAPPY',
+BLOCKCACHE => 'true',
+BLOCKSIZE => '131072 B (128KB)'} 
