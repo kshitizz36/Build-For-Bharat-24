@@ -80,6 +80,47 @@ public class Buyerapi3Application {
         }
     }
 
+    @Async("taskExecutor")
+    public CompletableFuture<List<String>> scanPincodes() {
+        List<String> pincodes = new ArrayList<>();
+        try (Table table = hbaseConnection.getTable(TableName.valueOf("pincode_serviceability"))) {
+            Scan scan = new Scan();
+            scan.setCaching(1000);
+            try (ResultScanner scanner = table.getScanner(scan)) {
+                for (Result result : scanner) {
+                    pincodes.add(Bytes.toString(result.getRow()));
+                }
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return CompletableFuture.completedFuture(pincodes);
+    }
+
+    @Async("taskExecutor")
+    public CompletableFuture<List<String>> scanPincodesForMerchant(String merchant) {
+        List<String> pincodes = new ArrayList<>();
+        try (Table table = hbaseConnection.getTable(TableName.valueOf("pincode_serviceability"))) {
+            Scan scan = new Scan();
+            scan.addColumn(Bytes.toBytes("cf"), Bytes.toBytes("merchant_id"));
+            scan.setCaching(1000);
+            try (ResultScanner scanner = table.getScanner(scan)) {
+                for (Result result : scanner) {
+                    byte[] value = result.getValue(Bytes.toBytes("cf"), Bytes.toBytes("merchant_id"));
+                    if (value != null) {
+                        String merchants = Bytes.toString(value);
+                        if (Arrays.asList(merchants.split(",")).contains(merchant)) {
+                            pincodes.add(Bytes.toString(result.getRow()));
+                        }
+                    }
+                }
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return CompletableFuture.completedFuture(pincodes);
+    }
+
     public static void logger(String txt) {
         System.out.println("########################################");
         System.out.println();
@@ -122,7 +163,36 @@ public class Buyerapi3Application {
                 cacheResults(processedPincodes, results);
                 return String.join(", ", results);
             });
-            
+
+        }
+
+        @GetMapping("/download/allpincodes")
+        public CompletableFuture<List<String>> getAllPincodes() {
+            return application.scanPincodes().thenApply(pincodes -> {
+                pincodes.forEach(pin -> logger("Pincode: " + pin));
+                return pincodes;
+            });
+        }
+
+        @GetMapping("/download/merchants")
+        public CompletableFuture<String> getPincodesByMerchant(@RequestParam String merchant, @RequestParam(required = false) String pin) {
+            if (pin != null && !pin.isEmpty()) {
+                return application.hbaseConn(pin).thenApply(result -> {
+                    if (result != null && !result.equals("Null")) {
+                        return result;
+                    } else {
+                        return "Merchant not found for pincode: " + pin;
+                    }
+                });
+            } else {
+                return application.scanPincodesForMerchant(merchant).thenApply(pincodes -> {
+                    if (!pincodes.isEmpty()) {
+                        return "Merchant " + merchant + " services pincodes: " + String.join(", ", pincodes);
+                    } else {
+                        return "Merchant " + merchant + " not found";
+                    }
+                });
+            }
         }
 
         private List<String> processInputData(String data, String mode) {
