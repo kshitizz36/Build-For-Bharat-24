@@ -1,14 +1,31 @@
 from PyQt5 import QtCore, QtGui, QtWidgets
 from PyQt5.QtCore import QObject, pyqtSignal
+from PyQt5.QtWidgets import QCompleter
 import requests
 import json
 import geocoder
 from src.map import MapWindow
+import ast
 
 class Communicator(QObject):
     coordinates_signal = pyqtSignal(int) 
 
 class Ui_BuyerWindow(object):
+
+    def __init__(self):
+        self.config = json.load(open("src/config.json",'r'))
+        self.allpincodes = requests.get(self.config["GetMerchants"]).text
+        try:
+            self.numbers = ast.literal_eval(self.allpincodes)
+            if not isinstance(self.numbers, list):
+                raise ValueError("Input string is not a list")
+        except (ValueError, SyntaxError) as e:
+            print(f"Error parsing input list: {e}")
+            return
+
+        str_numbers = list(map(str, self.numbers))
+        self.completer = QCompleter(str_numbers)
+
 
     def setupUi(self, MainWindow):
         self.activated = 'pincodes'
@@ -162,7 +179,7 @@ class Ui_BuyerWindow(object):
         self.pushButton_4.setObjectName("pushButton_4")
         self.scrollArea = QtWidgets.QScrollArea(self.centralwidget)
         self.scrollArea.setGeometry(QtCore.QRect(980, 140, 451, 611))
-        self.scrollArea.setStyleSheet("background-color:#bcbcbc;\n"
+        self.scrollArea.setStyleSheet("background-color:#e2e2e2;\n"
 "border-radius:25")
         self.scrollArea.setVerticalScrollBarPolicy(QtCore.Qt.ScrollBarAlwaysOn)
         self.scrollArea.setWidgetResizable(True)
@@ -211,22 +228,8 @@ class Ui_BuyerWindow(object):
         self.pincodes.setFrameShape(QtWidgets.QFrame.StyledPanel)
         self.pincodes.setFrameShadow(QtWidgets.QFrame.Raised)
         self.pincodes.setObjectName("pincodes")
-        self.textEdit = QtWidgets.QTextEdit(self.pincodes)
-        self.textEdit.setGeometry(QtCore.QRect(40, 90, 601, 51))
-        font = QtGui.QFont()
-        font.setFamily("Google Sans")
-        font.setPointSize(16)
-        font.setBold(True)
-        font.setWeight(75)
-        self.textEdit.setFont(font)
-        self.textEdit.setStyleSheet("border-radius:25;\n"
-"border: 3px solid #0085ff;\n"
-"border-color:#0085ffsu;\n"
-"background:transparent;\n"
-"color:black;")
-        self.textEdit.setObjectName("textEdit")
         self.label_6 = QtWidgets.QLabel(self.pincodes)
-        self.label_6.setGeometry(QtCore.QRect(40, 50, 251, 31))
+        self.label_6.setGeometry(QtCore.QRect(40, 50, 250, 30))
         font = QtGui.QFont()
         font.setFamily("Google Sans")
         font.setPointSize(18)
@@ -241,13 +244,13 @@ class Ui_BuyerWindow(object):
         font.setFamily("Google Sans")
         self.pushButton_6.setFont(font)
         self.pushButton_6.setStyleSheet("QPushButton#pushButton_6{\n"
-"border-radius:20;\n"
+"border-radius:21;\n"
 "background-color:#4285F4;\n"
 "color:black;\n"
 "}\n"
 "\n"
 "QPushButton#pushButton_6:hover{\n"
-"border-radius:20;\n"
+"border-radius:21;\n"
 "background-color:#75A9FF;\n"
 "color:black;\n"
 "}\n"
@@ -257,8 +260,6 @@ class Ui_BuyerWindow(object):
         self.pushButton_6.setIcon(icon1)
         self.pushButton_6.setIconSize(QtCore.QSize(20, 20))
         self.pushButton_6.setObjectName("pushButton_6")
-        self.gps = QtWidgets.QFrame(self.centralwidget)
-        self.gps.setGeometry(QtCore.QRect(40, 200, 821, 411))
         self.label_11 = QtWidgets.QLabel(self.pincodes)
         self.label_11.setGeometry(QtCore.QRect(60, 140, 531, 21))
         font = QtGui.QFont()
@@ -269,6 +270,26 @@ class Ui_BuyerWindow(object):
         self.label_11.setFont(font)
         self.label_11.setStyleSheet("color:#6a6a6a;background:transparent;")
         self.label_11.setObjectName("label_11")
+        self.lineEdit = QtWidgets.QLineEdit(self.pincodes)
+        self.lineEdit.setGeometry(QtCore.QRect(70, 100, 541, 31))
+        self.lineEdit.setObjectName("lineEdit")
+        self.frame = QtWidgets.QFrame(self.pincodes)
+        self.frame.setGeometry(QtCore.QRect(40, 90, 600, 50))
+        self.frame.setStyleSheet("border-radius:25;\n"
+"border: 3px solid #0085ff;\n"
+"border-color:#0085ffsu;\n"
+"background:transparent;\n"
+"color:black;")
+        self.frame.setFrameShape(QtWidgets.QFrame.StyledPanel)
+        self.frame.setFrameShadow(QtWidgets.QFrame.Raised)
+        self.frame.setObjectName("frame")
+        self.label_6.raise_()
+        self.pushButton_6.raise_()
+        self.label_11.raise_()
+        self.frame.raise_()
+        self.lineEdit.raise_()
+        self.gps = QtWidgets.QFrame(self.centralwidget)
+        self.gps.setGeometry(QtCore.QRect(40, 200, 821, 411))
         self.gps.setStyleSheet("border:0;")
         self.gps.setFrameShape(QtWidgets.QFrame.StyledPanel)
         self.gps.setFrameShadow(QtWidgets.QFrame.Raised)
@@ -365,7 +386,7 @@ class Ui_BuyerWindow(object):
 "color:black;")
         self.textEdit_4.setObjectName("textEdit_4")
         self.label_9 = QtWidgets.QLabel(self.location)
-        self.label_9.setGeometry(QtCore.QRect(40,50, 251, 21))
+        self.label_9.setGeometry(QtCore.QRect(40, 50, 251, 21))
         font = QtGui.QFont()
         font.setFamily("Google Sans")
         font.setPointSize(18)
@@ -384,18 +405,77 @@ class Ui_BuyerWindow(object):
         self.label_10.setFont(font)
         self.label_10.setStyleSheet("color:#6a6a6a;background : transparent;")
         self.label_10.setObjectName("label_10")
+        self.pushButton_8 = QtWidgets.QPushButton(self.centralwidget)
+        self.pushButton_8.setGeometry(QtCore.QRect(500, 130, 141, 51))
+        font = QtGui.QFont()
+        font.setFamily("Google Sans")
+        font.setBold(True)
+        font.setWeight(75)
+        self.pushButton_8.setFont(font)
+        self.pushButton_8.setStyleSheet("QPushButton#pushButton_8{\n"
+"border-radius:25;\n"
+"border: 3px solid #0085ff;\n"
+"border-color:#0085ffsu;\n"
+"background:transparent;\n"
+"color:#3f3f3f;\n"
+"}\n"
+"\n"
+"QPushButton#pushButton_8:hover{\n"
+"border-radius:25;\n"
+"border: 3px solid #75A9FF;\n"
+"border-color:#0085ffsu;\n"
+"background-color:#75A9FF\n"
+"}\n"
+"\n"
+"\n"
+"")
+        icon4 = QtGui.QIcon()
+        icon4.addPixmap(QtGui.QPixmap("Assets/shop2.png"), QtGui.QIcon.Normal, QtGui.QIcon.Off)
+        self.pushButton_8.setIcon(icon4)
+        self.pushButton_8.setIconSize(QtCore.QSize(20, 20))
+        self.pushButton_8.setObjectName("pushButton_8")
+        self.merchants = QtWidgets.QFrame(self.centralwidget)
+        self.merchants.setGeometry(QtCore.QRect(40, 200, 821, 411))
+        self.merchants.setStyleSheet("border:0;")
+        self.merchants.setFrameShape(QtWidgets.QFrame.StyledPanel)
+        self.merchants.setFrameShadow(QtWidgets.QFrame.Raised)
+        self.merchants.setObjectName("merchants")
+        self.frame_2 = QtWidgets.QFrame(self.merchants)
+        self.frame_2.setGeometry(QtCore.QRect(40, 90, 600, 50))
+        self.frame_2.setStyleSheet("border-radius:25;\n"
+"border: 3px solid #0085ff;\n"
+"border-color:#0085ffsu;\n"
+"background:transparent;\n"
+"color:black;")
+        self.frame_2.setFrameShape(QtWidgets.QFrame.StyledPanel)
+        self.frame_2.setFrameShadow(QtWidgets.QFrame.Raised)
+        self.frame_2.setObjectName("frame_2")
+        self.label_4 = QtWidgets.QLabel(self.merchants)
+        self.label_4.setGeometry(QtCore.QRect(40, 50, 341, 30))
+        font = QtGui.QFont()
+        font.setFamily("Google Sans")
+        font.setPointSize(18)
+        font.setBold(True)
+        font.setWeight(75)
+        self.label_4.setFont(font)
+        self.label_4.setObjectName("label_4")
+        self.lineEdit_2 = QtWidgets.QLineEdit(self.merchants)
+        self.lineEdit_2.setGeometry(QtCore.QRect(70, 103, 540, 20))
+        self.lineEdit_2.setObjectName("lineEdit_2")
         self.label.raise_()
         self.label_2.raise_()
         self.label_3.raise_()
         self.pushButton.raise_()
         self.pushButton_2.raise_()
-        self.pushButton_3.raise_()
         self.pushButton_4.raise_()
         self.scrollArea.raise_()
         self.pushButton_5.raise_()
-        self.pincodes.raise_()
-        self.location.raise_()
+        self.pushButton_3.raise_()
+        self.pushButton_8.raise_()
         self.gps.raise_()
+        self.location.raise_()
+        self.pincodes.raise_()
+        self.merchants.raise_()
         MainWindow.setCentralWidget(self.centralwidget)
         self.statusbar = QtWidgets.QStatusBar(MainWindow)
         self.statusbar.setObjectName("statusbar")
@@ -419,27 +499,32 @@ class Ui_BuyerWindow(object):
         self.pushButton_5.setText(_translate("MainWindow", "SEARCH"))
         self.label_6.setText(_translate("MainWindow", "Enter Pincode(s)"))
         self.pushButton_6.setText(_translate("MainWindow", "   Open Map"))
+        self.label_11.setText(_translate("MainWindow", "Enter multiple pincodes separated by commas e.g., 110001,500001,201301"))
         self.label_7.setText(_translate("MainWindow", "Enter Latitude"))
         self.label_8.setText(_translate("MainWindow", "Enter Longitude"))
         self.pushButton_7.setText(_translate("MainWindow", "   Get Current Location"))
         self.label_9.setText(_translate("MainWindow", "Enter Location Name"))
-        self.label_11.setText(_translate("MainWindow", "Enter multiple pincodes separated by commas e.g., 110001,500001,201301"))
-        self.label_10.setText(_translate("MainWindow", "Enter multiple locations separated by commas e.g., Delhi,Bangalore"))
+        self.label_10.setText(_translate("MainWindow", "Enter multiple locations separated by commas e.g., Delhi,Bengaluru"))
+        self.pushButton_8.setText(_translate("MainWindow", "  Merchants"))
+        self.label_4.setText(_translate("MainWindow", "Enter Merchant Name"))
 
 
-
+        self.lineEdit.setCompleter(self.completer)
 
         
-        self.pushButton_2.clicked.connect(lambda :self.changeMode(self.pincodes,self.gps,self.location,'pincodes'))
+        self.pushButton_2.clicked.connect(lambda :self.changeMode(self.pincodes,self.gps,self.location,self.merchants,'pincodes'))
 
-        self.pushButton_3.clicked.connect(lambda :self.changeMode(self.gps,self.pincodes,self.location,'gps'))
+        self.pushButton_3.clicked.connect(lambda :self.changeMode(self.gps,self.pincodes,self.location,self.merchants,'gps'))
 
-        self.pushButton_4.clicked.connect(lambda: self.changeMode(self.location,self.gps,self.pincodes,'location'))
+        self.pushButton_4.clicked.connect(lambda: self.changeMode(self.location,self.gps,self.pincodes,self.merchants,'location'))
+
+        self.pushButton_8.clicked.connect(lambda: self.changeMode(self.merchants,self.gps,self.pincodes,self.location,'merchants'))
         self.pushButton_6.clicked.connect(lambda: self.open_map_view())
         self.pushButton_5.clicked.connect(lambda: self.SendReq(self.activated))
         self.pushButton_7.clicked.connect(lambda: self.get_current_location())
 
         self.location.hide()
+        self.merchants.hide()
         self.gps.hide()
 
     def addUi(self,x):
@@ -452,7 +537,7 @@ class Ui_BuyerWindow(object):
                 self.frame = QtWidgets.QFrame(self.scrollAreaWidgetContents)
                 self.frame.setMinimumSize(QtCore.QSize(360, 55))
                 self.frame.setMaximumSize(QtCore.QSize(360, 55))
-                self.frame.setStyleSheet("background-color:#a6a6a6;color:black;")
+                self.frame.setStyleSheet("background-color:#4285F4;color:black;")
                 self.frame.setFrameShape(QtWidgets.QFrame.StyledPanel)
                 self.frame.setFrameShadow(QtWidgets.QFrame.Raised)
                 self.frame.setObjectName("frame_"+str(i))
@@ -463,7 +548,7 @@ class Ui_BuyerWindow(object):
                 font.setBold(True)
                 font.setWeight(75)
                 self.label_4.setFont(font)
-                self.label_4.setStyleSheet("color:black")
+                self.label_4.setStyleSheet("color:white")
                 self.label_4.setObjectName("label_4_"+str(i)) 
                 self.label_4.setText(x[i])
                 self.verticalLayout_2.addWidget(self.frame)
@@ -475,47 +560,55 @@ class Ui_BuyerWindow(object):
 
 
 
-    def changeMode(self,active,nactive,nactive2,activated):
+    def changeMode(self,active,nactive,nactive2,nactive3,activated):
         self.activated = activated
         active.show()
         nactive.hide()
         nactive2.hide()
+        nactive3.hide()
 
     def SendReq(self,mode):
-        config = json.load(open("src/config.json",'r'))
         print(mode)
         if mode=='pincodes':
-            rawTxt = self.textEdit.toPlainText()
+            rawTxt = self.lineEdit.text()
             data = rawTxt
         elif mode=='gps':
             data=self.textEdit_2.toPlainText()+','+self.textEdit_3.toPlainText()
 
         elif mode=='location':
             data = self.textEdit_4.toPlainText()
+        elif mode=='merchants':
+            data = self.lineEdit_2.text()
+            
 
         params = {
             'data': data,
             'mode': mode
         }
 
-        
+        if mode == 'merchants':
+            params = {'merchant':data}
+            response = requests.get(self.config["MerchantQuery"],params=params)
+            master_data = response.text[35::].split(",")        
+            new_master_data = [i.strip() for i in master_data if i.strip() != "No Merchants Found"]
+            print(new_master_data)
+            self.addUi(new_master_data)
 
-        response = requests.get(config['BuyerAPI'], params=params)
-        master_data = response.text.split(",")
-        print(master_data)
-        
-        new_master_data = [i.strip() for i in master_data if i.strip() != "No Merchants Found"]
-        print(new_master_data)
-        self.addUi(new_master_data)
+        else:
+            response = requests.get(self.config['BuyerAPI'], params=params)
+            master_data = response.text.split(",")        
+            new_master_data = [i.strip() for i in master_data if i.strip() != "No Merchants Found"]
+            print(new_master_data)
+            self.addUi(new_master_data)
 
     def update_coordinates(self,x):
        print('started',x)
        if len(str(x)) == 6:
-           oldtxt = self.textEdit.toPlainText()
+           oldtxt = self.lineEdit.text()
            if len(oldtxt) == 0:
-                self.textEdit.setText(str(x)+',')
+                self.lineEdit.setText(str(x)+',')
            elif oldtxt[-1]==',':
-               self.textEdit.setText(oldtxt+str(x)+',')
+               self.lineEdit.setText(oldtxt+str(x)+',')
                 
        
        else:

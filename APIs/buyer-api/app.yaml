@@ -1,0 +1,16 @@
+runtime: java17  # or your specific runtime
+
+instance_class: F4  # Adjust based on your requirements
+
+entrypoint: java -Xmx1024m -jar target/your-app.jar  # Adjust the heap size and jar file name as needed
+
+vpc_access_connector:
+  name: projects/YOUR_PROJECT_ID/locations/YOUR_REGION/connectors/YOUR_CONNECTOR_NAME
+
+env_variables:
+  JAVA_OPTS: "-Xmx1024m -Xms512m"  # Example to increase JVM heap size
+
+handlers:
+  - url: /.*
+    script: this field is required, but ignored
+    secure: always

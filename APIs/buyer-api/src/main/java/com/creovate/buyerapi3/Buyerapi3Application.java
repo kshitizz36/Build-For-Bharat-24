@@ -103,7 +103,6 @@ public class Buyerapi3Application {
         try (Table table = hbaseConnection.getTable(TableName.valueOf("pincode_serviceability"))) {
             Scan scan = new Scan();
             scan.addColumn(Bytes.toBytes("cf"), Bytes.toBytes("merchant_id"));
-            scan.setCaching(1000);
             try (ResultScanner scanner = table.getScanner(scan)) {
                 for (Result result : scanner) {
                     byte[] value = result.getValue(Bytes.toBytes("cf"), Bytes.toBytes("merchant_id"));

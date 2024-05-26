@@ -17,6 +17,8 @@ import org.springframework.scheduling.annotation.Async;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
+import javax.annotation.PostConstruct;
+import javax.annotation.PreDestroy;
 import java.io.BufferedReader;
 import java.io.InputStreamReader;
 import java.io.Reader;
@@ -30,10 +32,11 @@ import java.util.logging.Logger;
 public class SellerApplication {
 
     public final static String hbaseIP = "10.190.0.4";
-
     private static final Logger logger = Logger.getLogger(SellerApplication.class.getName());
+    
     private final TaskExecutor taskExecutor;
     private final Configuration hbaseConfig;
+    private Connection hbaseConnection;
     private final Map<String, String> processingStatus = new ConcurrentHashMap<>();
     private final Map<String, List<Map<String, List<String>>>> parsedDataMap = new ConcurrentHashMap<>();
     int setcnt = 0;
@@ -47,6 +50,28 @@ public class SellerApplication {
 
     public static void main(String[] args) {
         SpringApplication.run(SellerApplication.class, args);
+    }
+
+    @PostConstruct
+    public void initializeHBaseConnection() {
+        try {
+            this.hbaseConnection = ConnectionFactory.createConnection(hbaseConfig);
+            logger.info("HBase connection initialized.");
+        } catch (Exception e) {
+            logger.severe("Error initializing HBase connection: " + e.getMessage());
+        }
+    }
+
+    @PreDestroy
+    public void closeHBaseConnection() {
+        try {
+            if (this.hbaseConnection != null) {
+                this.hbaseConnection.close();
+                logger.info("HBase connection closed.");
+            }
+        } catch (Exception e) {
+            logger.severe("Error closing HBase connection: " + e.getMessage());
+        }
     }
 
     @PostMapping(value = "/upload/csv")
@@ -102,9 +127,9 @@ public class SellerApplication {
                 if (headers.length == 0) {
                     throw new IllegalArgumentException("CSV file must have headers.");
                 }
-                
+
                 loggerx("start of parse");
-                
+
                 for (CSVRecord record : parser) {
                     for (int i = 0; i < Math.min(headers.length, record.size()); i++) {
                         String merchantName = record.get(i).trim();
@@ -133,13 +158,11 @@ public class SellerApplication {
     }
 
     private String fetchExistingDataFromHBase(String pinCode) throws Exception {
-        try (Connection connection = ConnectionFactory.createConnection(hbaseConfig);
-             Table table = connection.getTable(TableName.valueOf("pincode_serviceability"))) {
-            
+        try (Table table = hbaseConnection.getTable(TableName.valueOf("pincode_serviceability"))) {
             Get get = new Get(Bytes.toBytes(pinCode));
             Result result = table.get(get);
             byte[] value = result.getValue(Bytes.toBytes("cf"), Bytes.toBytes("merchant_id"));
-            
+
             return value != null ? Bytes.toString(value) : null;
         }
     }
@@ -154,9 +177,7 @@ public class SellerApplication {
 
     @Async
     public void insertBatchIntoHBase(Map<String, List<String>> batch, String processingId) {
-        try (Connection connection = ConnectionFactory.createConnection(hbaseConfig);
-             Table table = connection.getTable(TableName.valueOf("pincode_serviceability"))) {
-            
+        try (Table table = hbaseConnection.getTable(TableName.valueOf("pincode_serviceability"))) {
             for (Map.Entry<String, List<String>> entry : batch.entrySet()) {
                 String pinCode = entry.getKey();
                 List<String> newMerchants = entry.getValue();
@@ -180,7 +201,7 @@ public class SellerApplication {
 
             loggerx("Entered " + setcnt + " Rows into HBASE");
             setcnt = 0;
-            logger.info("Batch inserted into HBase: " + batch.toString());
+            logger.info("Batch inserted into HBase");
             processingStatus.put(processingId, "Batch inserted into HBase successfully.");
         } catch (Exception e) {
             logger.severe("Error inserting batch into HBase: " + e.getMessage());
@@ -190,8 +211,7 @@ public class SellerApplication {
 
     @Async
     public void insertJSONIntoHBase(String merchant, String pin) {
-        try (Connection connection = ConnectionFactory.createConnection(hbaseConfig);
-             Table table = connection.getTable(TableName.valueOf("pincode_serviceability"))) {
+        try (Table table = hbaseConnection.getTable(TableName.valueOf("pincode_serviceability"))) {
 
             // Fetch existing data
             String existingData = fetchExistingDataFromHBase(pin);

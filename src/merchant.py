@@ -384,6 +384,7 @@ class Ui_MerchantWindow(object):
          self.pushButton_9.setText(_translate("MainWindow", "SUBMIT"))
          self.pushButton_9.clicked.connect(lambda: self.sendJSON(self.lineEdit.text(),self.lineEdit_3.text()))
          self.pushButton_2.clicked.connect(lambda: self.openFile())
+         self.pushButton_3.clicked.connect(lambda: self.StartWork())
          self.pushButton_5.clicked.connect(lambda: self.open_map_view())
 
 
