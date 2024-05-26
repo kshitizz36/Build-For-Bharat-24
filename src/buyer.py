@@ -1,5 +1,5 @@
 from PyQt5 import QtCore, QtGui, QtWidgets
-from PyQt5.QtCore import QObject, pyqtSignal
+from PyQt5.QtCore import QObject, pyqtSignal, QRunnable, QThreadPool
 from PyQt5.QtWidgets import QCompleter
 import requests
 import json
@@ -13,7 +13,7 @@ class Communicator(QObject):
 class Ui_BuyerWindow(object):
 
     def __init__(self):
-        self.config = json.load(open("src/config.json",'r'))
+        self.config = json.load(open("src/config.json", 'r'))
         self.allpincodes = requests.get(self.config["GetMerchants"]).text
         try:
             self.numbers = ast.literal_eval(self.allpincodes)
@@ -25,6 +25,8 @@ class Ui_BuyerWindow(object):
 
         str_numbers = list(map(str, self.numbers))
         self.completer = QCompleter(str_numbers)
+        self.threadpool = QThreadPool()
+        print(f"Multithreading with maximum {self.threadpool.maxThreadCount()} threads")
 
 
     def setupUi(self, MainWindow):
@@ -527,110 +529,123 @@ class Ui_BuyerWindow(object):
         self.merchants.hide()
         self.gps.hide()
 
-    def addUi(self,x):
+    def addUi(self, x):
+
         for i in reversed(range(self.verticalLayout_2.count())):
             self.verticalLayout_2.itemAt(i).widget().setParent(None)
 
         if len(x) == 1 and x[0] == "Null":
-            x[0] = "No Merchants found"                
+            x[0] = "No Merchants found"
         for i in range(len(x)):
-                self.frame = QtWidgets.QFrame(self.scrollAreaWidgetContents)
-                self.frame.setMinimumSize(QtCore.QSize(360, 55))
-                self.frame.setMaximumSize(QtCore.QSize(360, 55))
-                self.frame.setStyleSheet("background-color:#4285F4;color:black;")
-                self.frame.setFrameShape(QtWidgets.QFrame.StyledPanel)
-                self.frame.setFrameShadow(QtWidgets.QFrame.Raised)
-                self.frame.setObjectName("frame_"+str(i))
-                self.label_4 = QtWidgets.QLabel(self.frame)
-                self.label_4.setGeometry(QtCore.QRect(40, 0, 271, 51))
-                font = QtGui.QFont()
-                font.setFamily("Google Sans")
-                font.setBold(True)
-                font.setWeight(75)
-                self.label_4.setFont(font)
-                self.label_4.setStyleSheet("color:white")
-                self.label_4.setObjectName("label_4_"+str(i)) 
-                self.label_4.setText(x[i])
-                self.verticalLayout_2.addWidget(self.frame)
+            self.frame = QtWidgets.QFrame(self.scrollAreaWidgetContents)
+            self.frame.setMinimumSize(QtCore.QSize(360, 55))
+            self.frame.setMaximumSize(QtCore.QSize(360, 55))
+            self.frame.setStyleSheet("background-color:#4285F4;color:black;")
+            self.frame.setFrameShape(QtWidgets.QFrame.StyledPanel)
+            self.frame.setFrameShadow(QtWidgets.QFrame.Raised)
+            self.frame.setObjectName("frame_" + str(i))
+            self.label_4 = QtWidgets.QLabel(self.frame)
+            self.label_4.setGeometry(QtCore.QRect(40, 0, 271, 51))
+            font = QtGui.QFont()
+            font.setFamily("Google Sans")
+            font.setBold(True)
+            font.setWeight(75)
+            self.label_4.setFont(font)
+            self.label_4.setStyleSheet("color:white")
+            self.label_4.setObjectName("label_4_" + str(i))
+            self.label_4.setText(x[i])
+            self.verticalLayout_2.addWidget(self.frame)
 
- 
-    def UpdateMerchants(self,data):
+    def UpdateMerchants(self, data):
         for i in range(len(data)):
             self.addUi(data[i])
 
-
-
-    def changeMode(self,active,nactive,nactive2,nactive3,activated):
+    def changeMode(self, active, nactive, nactive2, nactive3, activated):
         self.activated = activated
         active.show()
         nactive.hide()
         nactive2.hide()
         nactive3.hide()
 
-    def SendReq(self,mode):
+    def SendReq(self, mode):
         print(mode)
-        if mode=='pincodes':
+        if mode == 'pincodes':
             rawTxt = self.lineEdit.text()
             data = rawTxt
-        elif mode=='gps':
-            data=self.textEdit_2.toPlainText()+','+self.textEdit_3.toPlainText()
-
-        elif mode=='location':
+        elif mode == 'gps':
+            data = self.textEdit_2.toPlainText() + ',' + self.textEdit_3.toPlainText()
+        elif mode == 'location':
             data = self.textEdit_4.toPlainText()
-        elif mode=='merchants':
+        elif mode == 'merchants':
             data = self.lineEdit_2.text()
-            
 
-        params = {
-            'data': data,
-            'mode': mode
-        }
+        worker = RequestWorker(self.config, mode, data)
+        worker.signals.result.connect(self.addUi)
+        worker.signals.error.connect(self.displayError)
+        self.threadpool.start(worker)
 
-        if mode == 'merchants':
-            params = {'merchant':data}
-            response = requests.get(self.config["MerchantQuery"],params=params)
-            master_data = response.text[35::].split(",")        
-            new_master_data = [i.strip() for i in master_data if i.strip() != "No Merchants Found"]
-            print(new_master_data)
-            self.addUi(new_master_data)
+    def displayError(self, error):
+        print(f"Error: {error}")
 
+    def update_coordinates(self, x):
+        print('started', x)
+        if len(str(x)) == 6:
+            oldtxt = self.lineEdit.text()
+            if len(oldtxt) == 0:
+                self.lineEdit.setText(str(x) + ',')
+            elif oldtxt[-1] == ',':
+                self.lineEdit.setText(oldtxt + str(x) + ',')
         else:
-            response = requests.get(self.config['BuyerAPI'], params=params)
-            master_data = response.text.split(",")        
-            new_master_data = [i.strip() for i in master_data if i.strip() != "No Merchants Found"]
-            print(new_master_data)
-            self.addUi(new_master_data)
-
-    def update_coordinates(self,x):
-       print('started',x)
-       if len(str(x)) == 6:
-           oldtxt = self.lineEdit.text()
-           if len(oldtxt) == 0:
-                self.lineEdit.setText(str(x)+',')
-           elif oldtxt[-1]==',':
-               self.lineEdit.setText(oldtxt+str(x)+',')
-                
-       
-       else:
-           print("Pincode not found")
+            print("Pincode not found")
 
     def open_map_view(self):
         self.map_window = MapWindow()
         self.map_window.bridge.coordinates_received.connect(self.communicator.coordinates_signal.emit)
         self.map_window.show()
 
-
-
     def get_current_location(self):
         g = geocoder.ip('me')
-        
+
         if g.ok:
             latitude = g.latlng[0]
             longitude = g.latlng[1]
-            print(latitude,longitude)
+            print(latitude, longitude)
             self.textEdit_2.setText(str(latitude))
             self.textEdit_3.setText(str(longitude))
 
+class RequestWorkerSignals(QObject):
+    result = pyqtSignal(list)
+    error = pyqtSignal(str)
+
+class RequestWorker(QRunnable):
+    def __init__(self, config, mode, data):
+        super(RequestWorker, self).__init__()
+        self.config = config
+        self.mode = mode
+        self.data = data
+        self.signals = RequestWorkerSignals()
+
+    def run(self):
+        try:
+            if self.mode == 'merchants':
+                params = {'merchant': self.data}
+                response = requests.get(self.config["MerchantQuery"], params=params)
+                print(response.text)
+                master_data = response.text.split(":")[1].split(",")
+                new_master_data = [i.strip() for i in master_data if i.strip() != "No Merchants Found" or i.strip() != 'Null']
+                self.signals.result.emit(new_master_data)
+            else:
+                
+                params = {'data': self.data, 'mode': self.mode}
+                print(params,self.mode)
+                response = requests.get(self.config['BuyerAPI'], params=params)
+                master_data = response.text.split(",")
+                print(master_data)
+                new_master_data = [i.strip() for i in master_data if i.strip() != "No Merchants Found"]
+                new_master_data = [i.strip() for i in master_data if i.strip() != 'Null']
+                self.signals.result.emit(new_master_data)
+        except Exception as e:
+            self.signals.error.emit(str(e))
 
 if __name__ == "__main__":
     import sys
@@ -639,10 +654,4 @@ if __name__ == "__main__":
     ui = Ui_BuyerWindow()
     ui.setupUi(MainWindow)
     MainWindow.show()
-    # threading.Thread(
-    #     target=Fapp.run,
-    #     kwargs=dict(debug=False,host='0.0.0.0',use_reloader=False,port=5555),
-    #     daemon=True,
-    # ).start()
     sys.exit(app.exec_())
-
