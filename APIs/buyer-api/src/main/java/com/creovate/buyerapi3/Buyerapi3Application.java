@@ -44,6 +44,7 @@ public class Buyerapi3Application {
         } catch (Exception e) {
             e.printStackTrace();
         }
+        logger("initialized");
     }
 
     @Bean(name = "taskExecutor")
@@ -121,6 +122,7 @@ public class Buyerapi3Application {
                 cacheResults(processedPincodes, results);
                 return String.join(", ", results);
             });
+            
         }
 
         private List<String> processInputData(String data, String mode) {
