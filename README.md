@@ -169,8 +169,6 @@ python main.py
 
 <div align="center">
 
-**Built with ❤️ for India's Digital Commerce Revolution**
-
 *Empowering ONDC's vision of democratized e-commerce through innovative technology*
 
 </div>
