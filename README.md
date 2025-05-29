@@ -2,8 +2,6 @@
 
 ![logo](https://hack2skill.com/ondc/hero.png)
 
-
-
 ## Problem Statement
 
 #### Optimal storage & retrieval in m*n sparse matrix 
@@ -166,31 +164,6 @@ python main.py
 | | Compute Engine | Direct VM deployment |
 | | Google App Engine | Serverless option |
 
-## 🏆 Hackathon Achievement
-
-**Build for Bharat 2024 - Foundational Category**
-- **Team Members**: Kshitiz Yadav, Arsh Srivastava
-- **Focus**: Solving critical ONDC infrastructure challenges
-- **Impact**: Enabling efficient serviceability at India's digital commerce scale
-
-## 🤝 Contributing
-
-We welcome contributions to improve the system:
-
-1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/enhancement`)
-3. Commit changes (`git commit -m 'Add enhancement'`)
-4. Push to branch (`git push origin feature/enhancement`)
-5. Open a Pull Request
-
-## 📄 License
-
-This project is licensed under the MIT License - see the LICENSE file for details.
-
-## 📞 Contact
-
-- **GitHub**: [@kshitizz36](https://github.com/kshitizz36)
-- **Project Repository**: [Build-For-Bharat-24](https://github.com/kshitizz36/Build-For-Bharat-24)
 
 ---
 
