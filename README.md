@@ -22,12 +22,6 @@ Considering there are more than 30K pincodes and at least 100 million merchants 
 
 High-performance sparse matrix storage solution for ONDC's massive scale serviceability verification
 
-## 🎯 Problem Statement
-
-**Challenge: Optimal storage & retrieval in m×n sparse matrix**
-
-The Open Network for Digital Commerce (ONDC) faces a critical scalability challenge: efficiently managing serviceability data for 10 million merchants across 30,000+ pincodes in India. This creates a sparse matrix storage problem where merchant serviceability definition and buyer verification processes must operate at near real-time speeds while handling massive scale.
-
 ## 💡 Solution Overview
 
 Our system leverages Apache HBase for distributed storage and Spring Boot microservices to handle the complex requirements of ONDC's serviceability verification ecosystem. The solution provides:
@@ -39,19 +33,7 @@ Our system leverages Apache HBase for distributed storage and Spring Boot micros
 
 ## 🏗️ System Architecture
 
-![Architecture Diagram](./assets/architecture-diagram.png)
-
-*System Architecture showing the flow between Desktop Application, APIs, and HBase Database*
-
-```
-graph TB
-    A[Desktop Application<br/>PyQt5] --> B[Buyer API<br/>Port 4040]
-    A --> C[Seller API<br/>Port 8080] 
-    B --> D[HBase Cluster]
-    C --> D
-    B --> E[External APIs<br/>OpenStreetMap<br/>PostalPincode.in]
-    D --> F[pincode_serviceability<br/>Table]
-```
+<img width="1137" alt="image" src="https://github.com/user-attachments/assets/d08a5277-85c3-4d8f-ad2a-ec35a07a5313" />
 
 ### Core Components:
 
